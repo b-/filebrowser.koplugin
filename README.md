@@ -12,6 +12,9 @@ Tested on jailbroken Kindle Paperwhite 4 (2018). It probably works on other devi
 
 1. Download and extract [the latest release](https://github.com/b-/filebrowser.koplugin/releases/latest) for your platform, and copy it to the `plugins/filebrowser.koplugin` directory of your KOReader installation.
 
+* If you're unsure about your device's CPU architecture, please refer to [this file](device_query.md) to identify it and select the appropriate bundle.
+* If your device is not listed under the Easy Installation section, refer to the Custom Installation section instead.
+
 ## Custom Installation (add your own `filebrowser` binary)
 
 1. Copy this repository (at least *_meta.lua* and *main.lua*) into the *plugins/filebrowser.koplugin* directory of your KOReader installation.
