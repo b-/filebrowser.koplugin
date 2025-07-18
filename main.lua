@@ -16,6 +16,8 @@ local logger = require("logger")
 local util = require("util")
 local _ = require("gettext")
 local T = ffiutil.template
+local Ui = require("filebrowser.ui")
+local Config = require("filebrowser.config")
 
 local path = DataStorage:getFullDataDir()
 local plugPath = path .. "/plugins/filebrowser.koplugin/filebrowser"
@@ -82,11 +84,7 @@ function Filebrowser:config()
         logger.info("[Filebrowser] User has been reset to koreader and password has been reset to koreader and auth has been reset to noauth.")
     else
         logger.info("[Filebrowser] Failed to reset admin password and auth, status Filebrowser, status: ", status)
-        local info = InfoMessage:new {
-            icon = "notice-warning",
-            text = _("Failed to reset Filebrowser config."),
-        }
-        UIManager:show(info)
+        Ui.showErrorMessage(_("Failed to reset Filebrowser config."))
     end
 end
 
@@ -136,18 +134,10 @@ function Filebrowser:start()
     local status = os.execute(cmd)
     if status == 0 then
         logger.dbg("[Filebrowser] Filebrowser started. Find Filebrowser logs at ", logPath)
-        local info = InfoMessage:new {
-            timeout = 2,
-            text = _("Filebrowser started!")
-        }
-        UIManager:show(info)
+        Ui.showInfoMessage(_("Filebrowser started!"), 2)
     else
         logger.dbg("[Filebrowser] Failed to start Filebrowser, status: ", status)
-        local info = InfoMessage:new {
-            icon = "notice-warning",
-            text = _("Failed to start Filebrowser."),
-        }
-        UIManager:show(info)
+        Ui.showErrorMessage(_("Failed to start Filebrowser."))
     end
 end
 
@@ -202,11 +192,7 @@ function Filebrowser:stop()
     local status = os.execute(cmd)
     if status == 0 then
         logger.dbg("[Filebrowser] Filebrowser stopped.")
-
-        UIManager:show(InfoMessage:new {
-            text = _("Filebrowser stopped!"),
-            timeout = 2,
-        })
+        Ui.showInfoMessage(_("Filebrowser stopped!"), 2)
 
         if util.pathExists(pidFilePath) then
             logger.dbg("[Filebrowser] Removing PID file at ", pidFilePath)
@@ -214,11 +200,7 @@ function Filebrowser:stop()
         end
     else
         logger.dbg("[Filebrowser] Failed to stop Filebrowser, status: ", status)
-
-        UIManager:show(InfoMessage:new {
-            icon = "notice-warning",
-            text = _("Failed to stop Filebrowser.")
-        })
+        Ui.showErrorMessage(_("Failed to stop Filebrowser."))
     end
 end
 
@@ -234,15 +216,63 @@ function Filebrowser:addToMainMenu(menu_items)
     menu_items.filebrowser = {
         text = _("Filebrowser"),
         sorting_hint = "network",
-        keep_menu_open = true,
-        checked_func = function() return self:isRunning() end,
-        callback = function(touchmenu_instance)
-            self:onToggleFilebrowser()
-            -- sleeping might not be needed, but it gives the feeling
-            -- something has been done and feedback is accurate
-            ffiutil.sleep(1)
-            touchmenu_instance:updateItems()
-        end,
+        sub_item_table = {
+            {
+                text = _("Filebrowser"),
+                keep_menu_open = true,
+                checked_func = function() return self:isRunning() end,
+                callback = function(touchmenu_instance)
+                    self:onToggleFilebrowser()
+                    -- sleeping might not be needed, but it gives the feeling
+                    -- something has been done and feedback is accurate
+                    ffiutil.sleep(1)
+                    touchmenu_instance:updateItems()
+                end,
+                separator = true,
+            },
+            {
+                text = _("Username"),
+                keep_menu_open = true,
+                enabled_func = function() return not self:isRunning() end,
+                callback = function()
+                    Ui.showUsernameDialog()
+                end,
+            },
+            {
+                text = _("Password"),
+                keep_menu_open = true,
+                enabled_func = function() return not self:isRunning() end,
+                callback = function()
+                    Ui.showPasswordDialog()
+                end,
+            },
+            {
+                -- text_func = function() return T(_("Port (%1)"), self.filebrowser_port) end,
+                text = _("Port"),
+                keep_menu_open = true,
+                enabled_func = function() return not self:isRunning() end,
+                callback = function()
+                    Ui.showPortDialog()
+                end,
+            },
+            {
+                text = _("Root directory"),
+                keep_menu_open = true,
+                enabled_func = function() return not self:isRunning() end,
+                callback = function()
+                    Ui.showRootDirectoryDialog()
+                end,
+                separator = true,
+            },
+            {
+                text = _("Clear all settings"),
+                keep_menu_open = true,
+                enabled_func = function() return not self:isRunning() end,
+                callback = function()
+                    Ui.showClearAllSettingsDialog()
+                end,
+            }
+        }
     }
 end
 
