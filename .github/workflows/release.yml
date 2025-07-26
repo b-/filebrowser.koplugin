@@ -1,0 +1,66 @@
+name: build_and_release
+
+on:
+  push:
+    tags:
+      - "*"
+    branches:
+        main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+        matrix:
+            platform: [ linux-armv7, linux-arm64 ]
+    outputs:
+      tag: ${{  steps.release_name.outputs.version  }}
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+        with:
+          path: './filebrowser.koplugin'
+      - name: Download Filebrowser server binary
+        id: get_filebrowser
+        uses: robinraju/release-downloader@v1
+        with:
+          repository: 'filebrowser/filebrowser'
+          latest: true
+          preRelease: false
+          fileName: '${{  matrix.platform  }}-filebrowser.tar.gz'
+          out-file-path: 'filebrowser.koplugin/filebrowser'
+          extract: true
+      - name: Template our release name
+        id: release_name
+        run: |
+          FILEBROWSER_TAG="${{steps.get_filebrowser.outputs.tag_name}}"
+          if [[ "${{ github.ref_type  }}" == "tag" ]] ; then
+            VERSION="${{  github.ref_name  }}-${FILEBROWSER_TAG#v}"
+            # example: filebrowser.koplugin_v1.0-2.30.0-arm64.tar.gz
+          else
+            VERSION="${{  github.ref_name  }}_$(date -I)-${FILEBROWSER_TAG#v}"
+            # example: filebrowser.koplugin_main_2024-07-15_2.30.0-arm64.tar.gz
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "outfile=filebrowser.koplugin_${VERSION}-${{  matrix.platform  }}.tar.gz" >> "$GITHUB_OUTPUT"
+      - name: Compress archive
+        run: tar -czvf "${{  steps.release_name.outputs.outfile  }}" filebrowser.koplugin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{  steps.release_name.outputs.outfile  }}
+          path: ${{  steps.release_name.outputs.outfile  }}
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - run: gh release delete ${{  needs.build.outputs.tag  }} --repo ${{  github.repository  }} --yes || true
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: ncipollo/release-action@v1
+        with:
+          tag: "${{  needs.build.outputs.tag  }}"
+          artifacts: "**/*.tar.gz"

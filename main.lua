@@ -71,7 +71,6 @@ function Filebrowser:config()
     end
 end
 
-
 -- Since Filebrowser doesn't start as a deamon by default and has no option to
 -- set a pidfile, we launch it using the start-stop-daemon helper. On Kobo and Kindle,
 -- this command is provided by BusyBox:
