@@ -7,7 +7,7 @@
 | Kindle Paperwhite 2 (2013)  | ARMv7              |
 | Kindle Paperwhite 3 (2015)  | ARMv7              |
 | Kindle Paperwhite 4 (2018)  | ARMv7              |
-| Kindle Paperwhite 5 (2021)  | ARM64 (aarch64)    |
+| Kindle Paperwhite 5 (2021)  | ARMv7              |
 | Kindle Oasis 2              | ARMv7              |
 | Kindle Oasis 3              | ARM64 (aarch64)    |
 | Kindle Basic 10th Gen       | ARMv7              |
