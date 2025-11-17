@@ -1,5 +1,5 @@
 local DataStorage = require("datastorage")
-local Device =  require("device")
+local Device = require("device")
 local Dispatcher = require("dispatcher")
 local InfoMessage = require("ui/widget/infomessage")
 local UIManager = require("ui/uimanager")
@@ -91,8 +91,8 @@ function Filebrowser:start()
         self:config()
     end
 
-    local cmd = ""
-    if Device:isPocketbook()
+    local cmd
+    if Device:isPocketbook() then
         cmd = string.format("%s %s -a 0.0.0.0 -r %s -p %s -l %s %s & echo $! > %s",
         bin_path, filebrowser_args, dataPath, self.filebrowser_port, log_path, silence_cmd, pid_path)
     else
@@ -120,7 +120,7 @@ function Filebrowser:start()
 
     -- Make a hole in the Kindle's firewall
     if Device:isKindle() then
-    logger.info("[Filebrowser] Opening port: ", self.filebrowser_port)
+        logger.info("[Filebrowser] Opening port: ", self.filebrowser_port)
         os.execute(string.format("iptables -A INPUT -p tcp --dport %s -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT", self.filebrowser_port))
         os.execute(string.format("iptables -A OUTPUT -p tcp --sport %s -m conntrack --ctstate ESTABLISHED -j ACCEPT", self.filebrowser_port))
     end
@@ -130,8 +130,8 @@ function Filebrowser:isRunning()
     -- Run start-stop-daemon in “stop” mode (-K) with signal 0 (no-op)
     -- to test whether any process matches this pidfile and executable.
     -- Exit code: 0 → at least one process found, 1 → none found.
-    local status = -1
-    if Device:isPocketbook()
+    local status
+    if Device:isPocketbook() then
         local f = io.open(pid_path, "r")
         if not f then
             return false
@@ -222,7 +222,7 @@ end
 
 function Filebrowser:onToggleFilebrowser()
     if self:isRunning() then
-        if Device:isPocketbook()
+        if Device:isPocketbook() then
             self:stopPocketbook()
         else
             self:stop()
