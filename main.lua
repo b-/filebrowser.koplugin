@@ -1,5 +1,5 @@
 local DataStorage = require("datastorage")
-local Device =  require("device")
+local Device = require("device")
 local Dispatcher = require("dispatcher")
 local InfoMessage = require("ui/widget/infomessage")
 local UIManager = require("ui/uimanager")
@@ -8,6 +8,7 @@ local ffiutil = require("ffi/util")
 local logger = require("logger")
 local util = require("util")
 local _ = require("gettext")
+local ffiUtil = require("ffi/util")
 
 local dataPath = "/"
 local path = DataStorage:getFullDataDir()
@@ -22,9 +23,11 @@ local pid_path = "/tmp/filebrowser_koreader.pid"
 
 local silence_cmd = ""
 -- uncomment below to prevent cmd output from cluttering up crash.log
-silence_cmd = " > /dev/null 2>&1"
+-- silence_cmd = " > /dev/null 2>&1"
+print("Checking if pocketbook device:", ffiUtil.isPocketbook())
 
-if not util.pathExists(bin_path) or os.execute("start-stop-daemon" .. silence_cmd) == 127 then
+-- only check for start-stop-daemon on non pocketbook devices
+if not util.pathExists(bin_path) or (not ffiUtil.isPocketbook() and os.execute("start-stop-daemon" .. silence_cmd) == 127) then
     logger.info("[Filebrowser] filebrowser binary missing, plugin not loading")
     return { disabled = true, }
 end
@@ -35,7 +38,7 @@ local Filebrowser = WidgetContainer:extend {
 }
 
 function Filebrowser:init()
-    self.filebrowser_port = G_reader_settings:readSetting("filebrowser_port") or "80"
+    self.filebrowser_port = G_reader_settings:readSetting("filebrowser_port") or "8080"
     self.filebrowser_password_hash = G_reader_settings:readSetting("filebrowser_password") or "admin"
     self.ui.menu:registerToMainMenu(self)
     self:onDispatcherRegisterActions()
@@ -90,8 +93,14 @@ function Filebrowser:start()
         self:config()
     end
 
-    local cmd = string.format("start-stop-daemon -S -m -p %s -o -b -x %s -- %s -a 0.0.0.0 -r %s -p %s -l %s ",
+    local cmd
+    if ffiUtil.isPocketbook() then
+        cmd = string.format("%s %s -a 0.0.0.0 -r %s -p %s -l %s %s & echo $! > %s",
+        bin_path, filebrowser_args, dataPath, self.filebrowser_port, log_path, silence_cmd, pid_path)
+    else
+        cmd = string.format("start-stop-daemon -S -m -p %s -o -b -x %s -- %s -a 0.0.0.0 -r %s -p %s -l %s ",
         pid_path, bin_path, filebrowser_args, dataPath, self.filebrowser_port, log_path) .. silence_cmd
+    end
     logger.info("[Filebrowser] Launching Filebrowser:", cmd)
     local status = os.execute(cmd)
 
@@ -113,7 +122,7 @@ function Filebrowser:start()
 
     -- Make a hole in the Kindle's firewall
     if Device:isKindle() then
-    logger.info("[Filebrowser] Opening port: ", self.filebrowser_port)
+        logger.info("[Filebrowser] Opening port: ", self.filebrowser_port)
         os.execute(string.format("iptables -A INPUT -p tcp --dport %s -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT", self.filebrowser_port))
         os.execute(string.format("iptables -A OUTPUT -p tcp --sport %s -m conntrack --ctstate ESTABLISHED -j ACCEPT", self.filebrowser_port))
     end
@@ -123,10 +132,27 @@ function Filebrowser:isRunning()
     -- Run start-stop-daemon in “stop” mode (-K) with signal 0 (no-op)
     -- to test whether any process matches this pidfile and executable.
     -- Exit code: 0 → at least one process found, 1 → none found.
-    local cmd = string.format("start-stop-daemon -K -s 0 -p %s -x %s", pid_path, bin_path) .. silence_cmd
-    logger.info("[Filebrowser] Check if Filebrowser is running:", cmd)
-    local status = os.execute(cmd)
-    logger.info("[Filebrowser] Running status exit code (0 == running):", status)
+    local status
+    if ffiUtil.isPocketbook() then
+        local f = io.open(pid_path, "r")
+        if not f then
+            return false
+        end
+
+        local pid = f:read("*l")
+        f:close()
+        if not pid or pid == "" then
+            return false
+        end
+        
+        status = os.execute("kill -0 " .. pid .. silence_cmd)
+    else
+        local cmd = string.format("start-stop-daemon -K -s 0 -p %s -x %s", pid_path, bin_path) .. silence_cmd
+        logger.info("[Filebrowser] Check if Filebrowser is running:", cmd)
+        status = os.execute(cmd)
+        logger.info("[Filebrowser] Running status exit code (0 == running):", status)
+    end
+
     return status == 0
 end
 
@@ -166,9 +192,43 @@ function Filebrowser:stop()
     end
 end
 
+function Filebrowser:stopPocketbook()
+    local f = io.open(pid_path, "r")
+    if not f then
+        logger.info("[Filebrowser] No PID file found, nothing to stop")
+        return
+    end
+    local pid = f:read("*l")
+    f:close()
+
+    if pid and pid ~= "" then
+    local cmd = "kill " .. pid .. silence_cmd
+    logger.info("[Filebrowser] Stopping Filebrowser:", cmd)
+    local status = os.execute(cmd)
+        if status == 0 then
+            logger.info("[Filebrowser] Filebrowser stopped.")
+            UIManager:show(InfoMessage:new {
+                text = _("Filebrowser stopped!"),
+                timeout = 2,
+            })
+            os.remove(pid_path)
+        else
+            logger.info("[Filebrowser] Failed to stop Filebrowser, status:", status)
+            UIManager:show(InfoMessage:new {
+                icon = "notice-warning",
+                text = _("Failed to stop Filebrowser."),
+            })
+        end
+    end
+end
+
 function Filebrowser:onToggleFilebrowser()
     if self:isRunning() then
-        self:stop()
+        if ffiUtil.isPocketbook() then
+            self:stopPocketbook()
+        else
+            self:stop()
+        end
     else
         self:start()
     end
