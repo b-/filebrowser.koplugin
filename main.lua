@@ -8,6 +8,7 @@ local ffiutil = require("ffi/util")
 local logger = require("logger")
 local util = require("util")
 local _ = require("gettext")
+local ffiUtil = require("ffi/util")
 
 local dataPath = "/"
 local path = DataStorage:getFullDataDir()
@@ -22,10 +23,11 @@ local pid_path = "/tmp/filebrowser_koreader.pid"
 
 local silence_cmd = ""
 -- uncomment below to prevent cmd output from cluttering up crash.log
-silence_cmd = " > /dev/null 2>&1"
+-- silence_cmd = " > /dev/null 2>&1"
+print("Checking if pocketbook device:", ffiUtil.isPocketbook())
 
 -- only check for start-stop-daemon on non pocketbook devices
-if not util.pathExists(bin_path) or (not Device:isPocketbook() and os.execute("start-stop-daemon" .. silence_cmd) == 127) then
+if not util.pathExists(bin_path) or (not ffiUtil.isPocketbook() and os.execute("start-stop-daemon" .. silence_cmd) == 127) then
     logger.info("[Filebrowser] filebrowser binary missing, plugin not loading")
     return { disabled = true, }
 end
@@ -92,7 +94,7 @@ function Filebrowser:start()
     end
 
     local cmd
-    if Device:isPocketbook() then
+    if ffiUtil.isPocketbook() then
         cmd = string.format("%s %s -a 0.0.0.0 -r %s -p %s -l %s %s & echo $! > %s",
         bin_path, filebrowser_args, dataPath, self.filebrowser_port, log_path, silence_cmd, pid_path)
     else
@@ -131,7 +133,7 @@ function Filebrowser:isRunning()
     -- to test whether any process matches this pidfile and executable.
     -- Exit code: 0 → at least one process found, 1 → none found.
     local status
-    if Device:isPocketbook() then
+    if ffiUtil.isPocketbook() then
         local f = io.open(pid_path, "r")
         if not f then
             return false
@@ -222,7 +224,7 @@ end
 
 function Filebrowser:onToggleFilebrowser()
     if self:isRunning() then
-        if Device:isPocketbook() then
+        if ffiUtil.isPocketbook() then
             self:stopPocketbook()
         else
             self:stop()
