@@ -1,3 +1,10 @@
+# Archived in favor of [ZenFM](https://github.com/xZenLabs/zen-fm)
+
+Please don't use this, because it isn't maintained
+and may have unfixed bugs and vulnerabilities.
+[ZenFM](https://github.com/xzenlabs/zen-fm) is a
+great replacement that I personally use now.
+
 # ![Filebrowser logo](https://avatars.githubusercontent.com/u/35781395?s=48&v=4) Filebrowser KOReader Plugin
 
 *Run Filebrowser server from within KOReader.*
